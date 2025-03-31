@@ -1,0 +1,17 @@
+---
+
+- name: Prepare new machines to be managed by Ansible
+  hosts: nodes
+#   become: true
+  gather_facts: false
+  pre_tasks:
+    - name: Install Python
+      changed_when: false
+      ansible.builtin.raw: apt-get update && apt-get install -y python3
+
+- name: Stuff
+  hosts: nodes
+#   become: true
+
+  roles:
+    - role: shitty-cluster
