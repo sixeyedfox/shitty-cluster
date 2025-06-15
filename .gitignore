@@ -1,3 +1,4 @@
 .vscode/
 shitty_cluster.ini
 ansible.cfg
+.DS_Store
