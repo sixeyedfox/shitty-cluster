@@ -1,23 +1,8 @@
 ---
 
-- name: Prepare new machines to be managed by Ansible
+- name: Setting up your very own shitty cluster
   hosts: nodes
-#   become: true
-  gather_facts: false
-  pre_tasks:
-    - name: Check if Python is installed
-      changed_when: false
-      ansible.builtin.raw: python3 --version
-      ignore_errors: true
-      register: check
-    - name: Install Python
-      changed_when: false
-      ansible.builtin.raw: apt-get update && apt-get install -y python3
-      when: check.rc != 0
-
-- name: Stuff
-  hosts: nodes
-#   become: true
+  become: true
 
   roles:
     - role: shitty-cluster

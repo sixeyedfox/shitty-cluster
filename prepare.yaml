@@ -1,0 +1,25 @@
+---
+
+- name: Preparing your hosts to be managed by Ansible
+  hosts: nodes
+  become: true
+  gather_facts: false
+  pre_tasks:
+    - name: Check if Python is installed
+      changed_when: false
+      ansible.builtin.raw: python3 --version
+      ignore_errors: true
+      register: check
+    - name: Install Python
+      changed_when: false
+      ansible.builtin.raw: apt-get update && apt-get install -y python3
+      when: check.rc != 0
+    - name: Check if python3-apt is installed
+      changed_when: false
+      ignore_errors: true
+      ansible.builtin.raw: dpkg -s python3-apt
+      register: check_apt
+    - name: Install python3-apt
+      changed_when: false
+      ansible.builtin.raw: apt-get update && apt-get install -y python3-apt
+      when: check_apt.rc != 0

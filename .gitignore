@@ -1,4 +1,3 @@
 .vscode/
-shitty_cluster.ini
-ansible.cfg
 .DS_Store
+shitty_cluster.yaml

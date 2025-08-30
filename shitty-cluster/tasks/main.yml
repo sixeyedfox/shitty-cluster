@@ -1,2 +1,39 @@
 ---
 # tasks file for shitty-cluster
+- name: Install prerequisites
+  ansible.builtin.package:
+    name: 
+      - apt-transport-https
+      - ca-certificates
+      - curl
+      - software-properties-common
+      - python3-pip
+      - virtualenv
+      - python3-setuptools
+    state: present
+    update_cache: true
+
+- name: Add Docker GPG apt key
+  ansible.builtin.apt_key:
+    url: https://download.docker.com/linux/debian/gpg
+    state: present
+
+- name: Get version codename
+  ansible.builtin.raw: . /etc/os-release && echo "$VERSION_CODENAME"
+  register: codename
+
+- name: Add Docker Repository
+  ansible.builtin.apt_repository:
+    repo: deb https://download.docker.com/linux/debian {{ codename.stdout }} stable
+    state: present
+
+- name: Update apt and install Docker
+  ansible.builtin.package:
+    name:
+      - docker-ce
+      - docker-ce-cli
+      - containerd.io
+      - docker-buildx-plugin
+      - docker-compose-plugin
+    state: present
+    update_cache: true
