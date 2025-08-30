@@ -1,8 +1,0 @@
----
-
-- name: Setting up your very own shitty cluster
-  hosts: nodes
-  become: true
-
-  roles:
-    - role: shitty-cluster
