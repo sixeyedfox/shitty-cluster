@@ -1,7 +1,5 @@
 all:
   vars:
-    os_valid_distributions:
-      - Debian
 
 nodes:
   hosts:

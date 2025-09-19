@@ -6,19 +6,6 @@
 
   tasks:
 
-    - name: Install prerequisites
-      ansible.builtin.package:
-        name:
-          - apt-transport-https
-          - ca-certificates
-          - curl
-          - software-properties-common
-          - python3-pip
-          - virtualenv
-          - python3-setuptools
-        state: present
-        update_cache: true
-
     - name: Add Docker GPG apt key
       ansible.builtin.apt_key:
         url: https://download.docker.com/linux/debian/gpg
