@@ -6,6 +6,11 @@
 
   tasks:
 
+    - name: Set node hostname
+      ansible.builtin.hostname:
+        name: "{{ hostvars[inventory_hostname]['hostname'] }}"
+        use: systemd
+
     - name: Add Docker GPG apt key
       ansible.builtin.apt_key:
         url: https://download.docker.com/linux/debian/gpg
