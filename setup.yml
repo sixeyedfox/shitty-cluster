@@ -6,10 +6,23 @@
 
   tasks:
 
+    - name: Update apt and install libpam-systemd
+      ansible.builtin.apt:
+        name:
+          - libpam-systemd
+        state: present
+        update_cache: true
+
+    - name: Enable and start dbus.service
+      ansible.builtin.systemd:
+        name: dbus
+        enabled: true
+        state: started
+
     - name: Set node hostname
       ansible.builtin.hostname:
         name: "{{ hostvars[inventory_hostname]['hostname'] }}"
-        use: systemd
+        use: debian
 
     - name: Add Docker GPG apt key
       ansible.builtin.apt_key:
@@ -28,7 +41,7 @@
       when: not ansible_check_mode
 
     - name: Update apt and install Docker
-      ansible.builtin.package:
+      ansible.builtin.apt:
         name:
           - docker-ce
           - docker-ce-cli
