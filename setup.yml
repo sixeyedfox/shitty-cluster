@@ -6,12 +6,17 @@
 
   tasks:
 
-    - name: Update apt and install libpam-systemd
+    - name: Update cache and install prereqs
       ansible.builtin.apt:
         name:
           - libpam-systemd
+          - e2fsprogs
+          - f2fs-tools
+          - python3-requests
+          - python3-docker
         state: present
         update_cache: true
+      tags: prereqs
 
     - name: Enable and start dbus.service
       ansible.builtin.systemd:
@@ -23,6 +28,30 @@
       ansible.builtin.hostname:
         name: "{{ hostvars[inventory_hostname]['hostname'] }}"
         use: debian
+
+    - name: Unmount data drive
+      ansible.posix.mount:
+        src: "{{ hostvars[inventory_hostname]['data_drive'] }}"
+        path: "{{ docker_data_mountpoint }}"
+        state: absent
+      tags: destructive, format, mount
+
+    - name: Format data drive
+      community.general.filesystem:
+        dev: "{{ hostvars[inventory_hostname]['data_drive'] }}"
+        fstype: "{{ data_drive_fs }}"
+        state: present
+        force: true
+      tags: destructive, format
+
+    - name: Mount data drive
+      ansible.posix.mount:
+        src: "{{ hostvars[inventory_hostname]['data_drive'] }}"
+        path: "{{ docker_data_mountpoint }}"
+        fstype: "{{ data_drive_fs }}"
+        opts: defaults
+        state: mounted
+      tags: destructive, format, mount
 
     - name: Add Docker GPG apt key
       ansible.builtin.apt_key:
@@ -40,7 +69,7 @@
         state: present
       when: not ansible_check_mode
 
-    - name: Update apt and install Docker
+    - name: Update cache and install Docker
       ansible.builtin.apt:
         name:
           - docker-ce
@@ -51,3 +80,20 @@
         state: present
         update_cache: true
       when: not ansible_check_mode
+
+    - name: Set up daemon.json
+      ansible.builtin.template:
+        src: templates/docker-daemon.json.j2
+        dest: "/etc/docker/daemon.json"
+        mode: "0655"
+
+    - name: Restart docker service
+      ansible.builtin.systemd_service:
+        name: docker
+        state: restarted
+
+    - name: Create docker swarm cluster
+      community.docker.docker_swarm:
+        state: present
+      when: hostvars[inventory_hostname]['role'] == 'master'
+      tags: swarm

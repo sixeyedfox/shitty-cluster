@@ -1,7 +1,18 @@
 all:
   vars:
+      data_drive_fs: ext4
+      docker_data_mountpoint: /docker
 
 nodes:
   hosts:
+    example-worker:
+      ansible_host: your.ip.here
+      hostname: example-worker
+      role: worker
+      data_drive: /dev/your-drive
 
-  vars:
+    example-master:
+      ansible_host: your.ip.here
+      hostname: example-master
+      role: master
+      data_drive: /dev/your-drive
