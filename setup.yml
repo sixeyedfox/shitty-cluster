@@ -14,22 +14,38 @@
           - f2fs-tools
           - python3-requests
           - python3-docker
+          - python3-debian
         state: present
         update_cache: true
-      tags: prereqs
+      tags: prereqs, system
 
     - name: Enable and start dbus.service
       ansible.builtin.systemd:
         name: dbus
         enabled: true
         state: started
+      tags: system
 
     - name: Set node hostname
       ansible.builtin.hostname:
         name: "{{ hostvars[inventory_hostname]['hostname'] }}"
         use: debian
+      tags: system
+
+    - name: Stop docker service
+      ansible.builtin.systemd_service:
+        name: docker
+        state: stopped
+      tags: docker
 
     - name: Unmount data drive
+      ansible.posix.mount:
+        src: "{{ hostvars[inventory_hostname]['data_drive'] }}"
+        path: "{{ docker_data_mountpoint }}"
+        state: unmounted
+      tags: destructive, format, mount
+
+    - name: Remove data drive from fstab
       ansible.posix.mount:
         src: "{{ hostvars[inventory_hostname]['data_drive'] }}"
         path: "{{ docker_data_mountpoint }}"
@@ -53,21 +69,17 @@
         state: mounted
       tags: destructive, format, mount
 
-    - name: Add Docker GPG apt key
-      ansible.builtin.apt_key:
-        url: https://download.docker.com/linux/debian/gpg
+    - name: Add docker repo
+      ansible.builtin.deb822_repository:
+        name: docker
+        types: [deb]
+        uris: "https://download.docker.com/linux/{{ ansible_distribution | lower }}"
+        signed_by: "https://download.docker.com/linux/{{ ansible_distribution | lower }}/gpg"
+        suites: ["{{ ansible_distribution_release | lower }}"]
+        components: [stable]
         state: present
-
-    - name: Get version codename
-      ansible.builtin.raw: . /etc/os-release && echo "$VERSION_CODENAME"
-      register: codename
-      changed_when: false
-
-    - name: Add Docker Repository
-      ansible.builtin.apt_repository:
-        repo: deb https://download.docker.com/linux/debian {{ codename.stdout }} stable
-        state: present
-      when: not ansible_check_mode
+        enabled: true
+      tags: docker
 
     - name: Update cache and install Docker
       ansible.builtin.apt:
@@ -80,20 +92,60 @@
         state: present
         update_cache: true
       when: not ansible_check_mode
+      tags: docker
 
     - name: Set up daemon.json
       ansible.builtin.template:
         src: templates/docker-daemon.json.j2
         dest: "/etc/docker/daemon.json"
         mode: "0655"
+      tags: docker
 
     - name: Restart docker service
       ansible.builtin.systemd_service:
         name: docker
         state: restarted
+      tags: docker
 
     - name: Create docker swarm cluster
       community.docker.docker_swarm:
         state: present
-      when: hostvars[inventory_hostname]['role'] == 'master'
+        force: "{{ force_recreate_cluster }}"
+      when: inventory_hostname == groups['masters'][0]
+      register: swarm_init
+      tags: swarm
+
+    - name: Get master nodes addresses # noqa: run-once[task]
+      ansible.builtin.set_fact:
+        master_nodes_addresses: >-
+          {{ groups['masters']
+             | map('extract', hostvars)
+             | map(attribute='ansible_default_ipv4.address')
+             | map('regex_replace', '$', ':' + data_path_port | string)
+             | join(',') }}
+      run_once: true
+      tags: swarm
+
+    - name: Save worker join token as fact on first manager
+      ansible.builtin.set_fact:
+        join_token_worker: "{{ swarm_init.swarm_facts.JoinTokens.Worker }}"
+      when: inventory_hostname == groups['masters'][0]
+
+    - name: Add workers to swarm cluster
+      community.docker.docker_swarm:
+        state: join
+        remote_addrs: "{{ master_nodes_addresses }}"
+        join_token: "{{ hostvars[groups['masters'][0]].join_token_worker }}"
+      when: inventory_hostname in groups['workers']
+      tags: swarm
+
+    - name: Get swarm info
+      community.docker.docker_swarm_info:
+      register: swarm_info
+      when: inventory_hostname == groups['masters'][0]
+      tags: swarm
+
+    - name: Print swarm info
+      ansible.builtin.debug:
+        var: swarm_info
       tags: swarm

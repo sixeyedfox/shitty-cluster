@@ -1,18 +1,22 @@
 all:
   vars:
+      ansible_user: root
       data_drive_fs: ext4
-      docker_data_mountpoint: /docker
+      docker_data_mountpoint: /var/lib/docker
+      data_path_port: 2377
+      force_recreate_cluster: false
 
 nodes:
-  hosts:
-    example-worker:
-      ansible_host: your.ip.here
-      hostname: example-worker
-      role: worker
-      data_drive: /dev/your-drive
-
-    example-master:
-      ansible_host: your.ip.here
-      hostname: example-master
-      role: master
-      data_drive: /dev/your-drive
+  children:
+    masters:
+      hosts:
+        example-master:
+          ansible_host: your.ip.here
+          hostname: example-master
+          data_drive: /dev/your-drive
+    workers:
+      hosts:
+        example-worker:
+          ansible_host: your.ip.here
+          hostname: example-worker
+          data_drive: /dev/your-drive
