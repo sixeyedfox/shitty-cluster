@@ -3,8 +3,7 @@ all:
       ansible_user: root
       data_drive_fs: ext4
       docker_data_mountpoint: /var/lib/docker
-      data_path_port: 2377
-      force_recreate_cluster: false
+      swarm_port: 2377
 
 nodes:
   children:

@@ -45,20 +45,19 @@
         state: unmounted
       tags: destructive, format, mount
 
+    - name: Format data drive
+      community.general.filesystem:
+        dev: "{{ hostvars[inventory_hostname]['data_drive'] }}"
+        fstype: "{{ data_drive_fs }}"
+        state: present
+      tags: destructive, format
+
     - name: Remove data drive from fstab
       ansible.posix.mount:
         src: "{{ hostvars[inventory_hostname]['data_drive'] }}"
         path: "{{ docker_data_mountpoint }}"
         state: absent
       tags: destructive, format, mount
-
-    - name: Format data drive
-      community.general.filesystem:
-        dev: "{{ hostvars[inventory_hostname]['data_drive'] }}"
-        fstype: "{{ data_drive_fs }}"
-        state: present
-        force: true
-      tags: destructive, format
 
     - name: Mount data drive
       ansible.posix.mount:
@@ -110,7 +109,6 @@
     - name: Create docker swarm cluster
       community.docker.docker_swarm:
         state: present
-        force: "{{ force_recreate_cluster }}"
       when: inventory_hostname == groups['masters'][0]
       register: swarm_init
       tags: swarm
@@ -121,15 +119,30 @@
           {{ groups['masters']
              | map('extract', hostvars)
              | map(attribute='ansible_default_ipv4.address')
-             | map('regex_replace', '$', ':' + data_path_port | string)
+             | map('regex_replace', '$', ':' + swarm_port | string)
              | join(',') }}
       run_once: true
       tags: swarm
+
+    - name: Save manager join token as fact on first manager
+      ansible.builtin.set_fact:
+        join_token_manager: "{{ swarm_init.swarm_facts.JoinTokens.Manager }}"
+      when: inventory_hostname == groups['masters'][0]
 
     - name: Save worker join token as fact on first manager
       ansible.builtin.set_fact:
         join_token_worker: "{{ swarm_init.swarm_facts.JoinTokens.Worker }}"
       when: inventory_hostname == groups['masters'][0]
+
+    - name: Add other managers to swarm cluster
+      community.docker.docker_swarm:
+        state: join
+        remote_addrs: "{{ master_nodes_addresses }}"
+        join_token: "{{ hostvars[groups['masters'][0]].join_token_worker }}"
+      when:
+        - inventory_hostname in groups['masters']
+        - not inventory_hostname == groups['masters'][0]
+      tags: swarm
 
     - name: Add workers to swarm cluster
       community.docker.docker_swarm:
